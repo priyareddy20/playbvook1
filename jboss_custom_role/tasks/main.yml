@@ -1,0 +1,50 @@
+---
+    - name: installing
+      yum:
+       name:
+        - java-1.8.0-openjdk-devel
+        - java-1.8.0-openjdk
+        - unzip
+       state: present
+    - name: Create a user
+      user:
+       name: jboss-eap
+    - name: copying
+      unarchive:
+       src: jboss-eap-7.2.0.zip
+       dest: /opt
+    - name: adding the ip addresses
+      command: "{{ item }}"
+      with_items:
+        - sed -i 's/127.0.0.1/{{ ansible_default_ipv4.address  }}/g'  /opt/jboss-eap-7.2/standalone/configuration/standalone.xml
+        - sed -i 's/port-offset:0/port-offset:1/g' /opt/jboss-eap-7.2/standalone/configuration/standalone.xml
+    - name: copying the war file
+      copy:
+       src: "{{ war_file}}.war" 
+       dest:  /opt/jboss-eap-7.2/standalone/deployments
+    - name: Copy the modified service configuration file to the /etc/default directory
+      copy:
+       src: /opt/jboss-eap-7.2/bin/init.d/jboss-eap.conf
+       dest: /etc/default
+       remote_src: yes
+       mode: u+x,g+x,o+x
+    - name: Copy the service startup script to the /etc/init.d directory
+      copy:
+       src: /opt/jboss-eap-7.2/bin/init.d/jboss-eap-rhel.sh
+       dest: /etc/init.d
+       remote_src: yes
+       mode: u+x,g+x,o+x
+    - name: Make the standalone.sh executable
+      file:
+       path: /opt/jboss-eap-7.2/bin/standalone.sh
+       mode: u+x,g+x,o+x
+    - name: Ensure that all the files are owned by jboss-eap
+      file:
+       path: /opt
+       owner: jboss-eap
+       recurse: yes
+    - name: Add jboss-eap-rhel.sh to the list of automatically started services using chkconfig
+      shell: chkconfig --add jboss-eap-rhel.sh
+    - name: Start the service by running the following command
+      shell: service jboss-eap-rhel start
+       warn=false
